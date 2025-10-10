@@ -17,7 +17,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-
+	log.Printf("Using Firebase key: %s", cfg.FirebaseKey)
 	app, err := firebase.NewApp(context.Background(), nil, option.WithCredentialsFile(cfg.FirebaseKey))
 	if err != nil {
 		log.Fatalf("Ошибка иницализаций FireBase: %v", err)

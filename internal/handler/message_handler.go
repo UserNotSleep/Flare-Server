@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"Flare-server/internal/service"
@@ -18,6 +19,7 @@ func NewMessageHandler(svc *service.MessageService) *MessageHandler {
 func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	messages, err := h.service.GetMessages(r.Context())
 	if err != nil {
+		log.Printf("❌ Error retrieving messages: %v", err) // ← Добавь это
 		http.Error(w, "Failed to retrieve messages", http.StatusInternalServerError)
 		return
 	}

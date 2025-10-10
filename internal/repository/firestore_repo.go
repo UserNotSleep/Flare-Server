@@ -3,17 +3,17 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
+	"log"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
 type Message struct {
-	ID         string    `json:"id" firestore:"id"`
-	Text       string    `json:"text" firestore:"text"`
-	SenderName string    `json:"senderName" firestore:"senderName"`
-	Timestamp  time.Time `json:"timestamp" firestore:"timestamp"`
+	ID         string `json:"id" firestore:"id"`
+	Text       string `json:"text" firestore:"text"`
+	SenderName string `json:"senderName" firestore:"senderName"`
+	Timestamp  int64  `json:"timestamp" firestore:"timestamp"`
 }
 
 type FirestoreRepo struct {
@@ -26,6 +26,7 @@ func NewFirestoreRepo(client *firestore.Client, collection string) *FirestoreRep
 }
 
 func (r *FirestoreRepo) GetMessages(ctx context.Context) ([]Message, error) {
+	log.Printf("Querying Firestore collection: %s", r.collection) // ← Добавь
 	iter := r.client.Collection(r.collection).OrderBy("timestamp", firestore.Asc).Documents(ctx)
 	defer iter.Stop()
 
@@ -36,12 +37,14 @@ func (r *FirestoreRepo) GetMessages(ctx context.Context) ([]Message, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Ошибка итераций сообщения: %w", err)
+			log.Printf("Firestore iteration error: %v", err) // ← Добавь
+			return nil, fmt.Errorf("failed to iterate messages: %w", err)
 		}
 
 		var msg Message
 		if err := doc.DataTo(&msg); err != nil {
-			return nil, fmt.Errorf("Ошибка декодирования сообщения: %w", err)
+			log.Printf("Firestore decode error: %v", err) // ← Добавь
+			return nil, fmt.Errorf("failed to decode message: %w", err)
 		}
 		messages = append(messages, msg)
 	}

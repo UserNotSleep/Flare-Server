@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"Flare-server/internal/repository"
@@ -17,6 +18,7 @@ func NewMessageService(repo *repository.FirestoreRepo) *MessageService {
 }
 
 func (s *MessageService) GetMessages(ctx context.Context) ([]repository.Message, error) {
+	log.Printf("Fetching messages from Firestore...")
 	return s.repo.GetMessages(ctx)
 }
 
@@ -29,7 +31,7 @@ func (s *MessageService) CreateMessage(ctx context.Context, input CreateMessageI
 		ID:         time.Now().Format("20060102150405.999999999"),
 		Text:       input.Text,
 		SenderName: input.SenderName,
-		Timestamp:  time.Now(),
+		Timestamp:  time.Now().UnixMilli(),
 	}
 
 	err := s.repo.SaveMessage(ctx, msg)
