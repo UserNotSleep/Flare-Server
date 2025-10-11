@@ -4,22 +4,30 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
-	"Flare-server/internal/service"
+	"Flare-server/internal/repository"
 )
 
-type MessageHandler struct {
-	service *service.MessageService
+type Message struct {
+	ID         string `json:"id" firestore:"id"`
+	Text       string `json:"text" firestore:"text"`
+	SenderName string `json:"senderName" firestore:"senderName"`
+	Timestamp  int64  `json:"timestamp" firestore:"timestamp"`
 }
 
-func NewMessageHandler(svc *service.MessageService) *MessageHandler {
-	return &MessageHandler{service: svc}
+type MessageHandler struct {
+	repo *repository.FirestoreRepo
+}
+
+func NewMessageHandler(repo *repository.FirestoreRepo) *MessageHandler {
+	return &MessageHandler{repo: repo}
 }
 
 func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
-	messages, err := h.service.GetMessages(r.Context())
+	messages, err := h.repo.GetMessages(r.Context())
 	if err != nil {
-		log.Printf("❌ Error retrieving messages: %v", err) // ← Добавь это
+		log.Printf("❌ Error retrieving messages: %v", err)
 		http.Error(w, "Failed to retrieve messages", http.StatusInternalServerError)
 		return
 	}
@@ -29,15 +37,37 @@ func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MessageHandler) PostMessage(w http.ResponseWriter, r *http.Request) {
-	var input service.CreateMessageInput
+	var input struct {
+		Text string `json:"text"`
+	}
+
+	username := r.Context().Value("user")
+	if username == nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	msg, err := h.service.CreateMessage(r.Context(), input)
+	if input.Text == "" {
+		http.Error(w, "Text is required", http.StatusBadRequest)
+		return
+	}
+
+	msg := repository.Message{
+		ID:         time.Now().Format("20060102150405.999999999"),
+		Text:       input.Text,
+		SenderName: username.(string),
+		Timestamp:  time.Now().UnixMilli(),
+	}
+
+	err := h.repo.SaveMessage(r.Context(), msg)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("❌ Error saving message: %v", err)
+		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
 	}
 

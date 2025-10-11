@@ -26,7 +26,7 @@ func NewFirestoreRepo(client *firestore.Client, collection string) *FirestoreRep
 }
 
 func (r *FirestoreRepo) GetMessages(ctx context.Context) ([]Message, error) {
-	log.Printf("Querying Firestore collection: %s", r.collection) // ← Добавь
+	log.Printf("Querying Firestore collection: %s", r.collection)
 	iter := r.client.Collection(r.collection).OrderBy("timestamp", firestore.Asc).Documents(ctx)
 	defer iter.Stop()
 
@@ -37,13 +37,13 @@ func (r *FirestoreRepo) GetMessages(ctx context.Context) ([]Message, error) {
 			break
 		}
 		if err != nil {
-			log.Printf("Firestore iteration error: %v", err) // ← Добавь
+			log.Printf("Firestore iteration error: %v", err)
 			return nil, fmt.Errorf("failed to iterate messages: %w", err)
 		}
 
 		var msg Message
 		if err := doc.DataTo(&msg); err != nil {
-			log.Printf("Firestore decode error: %v", err) // ← Добавь
+			log.Printf("Firestore decode error: %v", err)
 			return nil, fmt.Errorf("failed to decode message: %w", err)
 		}
 		messages = append(messages, msg)

@@ -17,39 +17,57 @@ import (
 
 func main() {
 	cfg := config.Load()
-	log.Printf("Using Firebase key: %s", cfg.FirebaseKey)
+
 	app, err := firebase.NewApp(context.Background(), nil, option.WithCredentialsFile(cfg.FirebaseKey))
 	if err != nil {
-		log.Fatalf("Ошибка иницализаций FireBase: %v", err)
+		log.Fatalf("❌ Failed to initialize Firebase: %v", err)
 	}
 
 	firestoreClient, err := app.Firestore(context.Background())
 	if err != nil {
-		log.Fatalf("Ошибка создания клиента FireBase: %v", err)
+		log.Fatalf("❌ Failed to create Firestore client: %v", err)
 	}
 	defer firestoreClient.Close()
 
-	repo := repository.NewFirestoreRepo(firestoreClient, cfg.Collection)
-	svc := service.NewMessageService(repo)
-	handler := handler.NewMessageHandler(svc)
+	// Repos
+	userRepo := repository.NewUserRepo(firestoreClient)
+	messageRepo := repository.NewFirestoreRepo(firestoreClient, cfg.Collection)
+
+	// Services
+	authService := service.NewAuthService(userRepo, []byte(cfg.JWTSecret))
+	messageHandler := handler.NewMessageHandler(messageRepo)
+
+	// Handlers
+	authHandler := handler.NewAuthHandler(authService)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/messages", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/register", authHandler.Register)
+	mux.HandleFunc("/api/login", authHandler.Login)
+	mux.HandleFunc("/api/logout", authHandler.Logout)
+
+	// Защищённые роуты
+	protected := middleware.AuthMiddleware(authService)
+
+	// Сообщения
+	mux.Handle("/api/messages", protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			handler.GetMessages(w, r)
+			messageHandler.GetMessages(w, r)
 		case http.MethodPost:
-			handler.PostMessage(w, r)
+			messageHandler.PostMessage(w, r)
 		default:
-			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	})))
+
+	// Профиль
+	mux.Handle("/api/profile", protected(http.HandlerFunc(authHandler.Profile)))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: middleware.CORSMiddleware(mux),
 	}
 
-	log.Printf("Сервер запущен на порту %s", cfg.Port)
+	log.Printf("✅ Server running on http://localhost:%s", cfg.Port)
 	log.Fatal(server.ListenAndServe())
 }
