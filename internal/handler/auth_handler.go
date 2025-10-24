@@ -32,14 +32,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Register(r.Context(), input.Username, input.Password)
+	user, err := h.service.Register(r.Context(), input.Username, input.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "User registered"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "User registered",
+		"user": map[string]interface{}{
+			"id":       user.ID,
+			"username": user.Username,
+		},
+	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -79,15 +85,22 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Profile(w http.ResponseWriter, r *http.Request) {
-	username := r.Context().Value("user")
-	if username == nil {
+	userInfo := r.Context().Value("user")
+	if userInfo == nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
+	userMap, ok := userInfo.(map[string]interface{})
+	if !ok {
+		http.Error(w, "Invalid user context", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"username": username.(string),
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"userID":   userMap["userID"],
+		"username": userMap["username"],
 		"message":  "Profile retrieved",
 	})
 }

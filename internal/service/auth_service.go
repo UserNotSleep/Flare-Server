@@ -23,19 +23,18 @@ func NewAuthService(userRepo *repository.UserRepo, jwtKey []byte) *AuthService {
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, username, password string) error {
+func (s *AuthService) Register(ctx context.Context, username, password string) (*repository.User, error) {
 	_, err := s.userRepo.GetUserByUsername(ctx, username)
 	if err == nil {
-		return errors.New("user already exists")
+		return nil, errors.New("user already exists")
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	user := repository.User{
-		ID:       username,
 		Username: username,
 		Password: string(hashed),
 	}
@@ -55,6 +54,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &jwt.MapClaims{
+		"userID":   user.ID,
 		"username": user.Username,
 		"exp":      expirationTime.Unix(),
 	}

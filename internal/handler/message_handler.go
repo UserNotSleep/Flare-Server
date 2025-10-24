@@ -41,9 +41,21 @@ func (h *MessageHandler) PostMessage(w http.ResponseWriter, r *http.Request) {
 		Text string `json:"text"`
 	}
 
-	username := r.Context().Value("user")
-	if username == nil {
+	userInfo := r.Context().Value("user")
+	if userInfo == nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	userMap, ok := userInfo.(map[string]interface{})
+	if !ok {
+		http.Error(w, "Invalid user context", http.StatusInternalServerError)
+		return
+	}
+
+	username, hasUsername := userMap["username"].(string)
+	if !hasUsername {
+		http.Error(w, "Username not found in context", http.StatusInternalServerError)
 		return
 	}
 
@@ -60,7 +72,7 @@ func (h *MessageHandler) PostMessage(w http.ResponseWriter, r *http.Request) {
 	msg := repository.Message{
 		ID:         time.Now().Format("20060102150405.999999999"),
 		Text:       input.Text,
-		SenderName: username.(string),
+		SenderName: username,
 		Timestamp:  time.Now().UnixMilli(),
 	}
 

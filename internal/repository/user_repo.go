@@ -3,15 +3,18 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
 type User struct {
-	ID       string `firestore:"id"`
-	Username string `firestore:"username"`
-	Password string `firestore:"password"`
+	ID        string    `firestore:"id" json:"id"`
+	Username  string    `firestore:"username" json:"username"`
+	Password  string    `firestore:"password" json:"-"`
+	CreatedAt time.Time `firestore:"createdAt" json:"createdAt"`
+	UpdatedAt time.Time `firestore:"updatedAt" json:"updatedAt"`
 }
 
 type TokenBlacklist struct {
@@ -48,12 +51,35 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*Use
 	if err := doc.DataTo(&user); err != nil {
 		return nil, err
 	}
+	user.ID = doc.Ref.ID
 	return &user, nil
 }
 
-func (r *UserRepo) SaveUser(ctx context.Context, user User) error {
-	_, _, err := r.client.Collection(r.usersColl).Add(ctx, user)
-	return err
+func (r *UserRepo) GetUserByID(ctx context.Context, userID string) (*User, error) {
+	doc, err := r.client.Collection(r.usersColl).Doc(userID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var user User
+	if err := doc.DataTo(&user); err != nil {
+		return nil, err
+	}
+	user.ID = doc.Ref.ID
+	return &user, nil
+}
+
+func (r *UserRepo) SaveUser(ctx context.Context, user User) (*User, error) {
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+	
+	docRef, _, err := r.client.Collection(r.usersColl).Add(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	
+	user.ID = docRef.ID
+	return &user, nil
 }
 
 func (r *UserRepo) AddToBlacklist(ctx context.Context, token string) error {

@@ -49,7 +49,11 @@ func AuthMiddleware(authService *service.AuthService) func(http.Handler) http.Ha
 			}
 
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				ctx := context.WithValue(r.Context(), UserContextKey, claims["username"])
+				userInfo := map[string]interface{}{
+					"userID":   claims["userID"],
+					"username": claims["username"],
+				}
+				ctx := context.WithValue(r.Context(), UserContextKey, userInfo)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
 				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
